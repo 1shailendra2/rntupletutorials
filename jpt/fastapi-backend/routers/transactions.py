@@ -6,7 +6,8 @@ from typing import Optional
 from thefuzz import fuzz
 
 import httpx
-from services.supabase_client import get_headers, SUPABASE_URL, supabase_admin
+import traceback
+from services.supabase_client import get_headers, SUPABASE_URL, supabase_admin, get_supabase_headers
 from services.whisper_service import transcribe_audio
 from services.llm_service import extract_transaction_from_text
 from services.email_service import send_reorder_email
@@ -86,6 +87,7 @@ async def list_transactions(user: dict = Depends(get_current_user)):
 @router.post("/voice", response_model=VoiceTransactionResponse)
 async def voice_transaction(
     file: UploadFile = File(...),
+    language: Optional[str] = None,
     user: dict = Depends(get_current_user),
 ):
     """Process a voice audio file into an inventory transaction.
@@ -99,19 +101,23 @@ async def voice_transaction(
 
         # 1. Transcribe audio with Whisper
         audio_bytes = await file.read()
-        transcript = await transcribe_audio(audio_bytes, file.filename or "audio.webm")
+        transcript = await transcribe_audio(audio_bytes, file.filename or "audio.webm", language=language)
+        print(f"[VOICE] Azure Transcript: '{transcript}'")
 
         # 2. Extract structured data with Gemini
         try:
             extracted = await extract_transaction_from_text(transcript)
+            print(f"[VOICE] Extracted Data: {extracted}")
         except Exception as e:
+            print(f"[VOICE] Extraction error: {e}")
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail=f"Could not extract transaction from transcript: {e}",
             )
 
         product_name = extracted.get("product_name", "")
-        quantity = int(extracted.get("quantity", 0))
+        raw_qty = extracted.get("quantity")
+        quantity = int(raw_qty) if raw_qty is not None else 0
         action = extracted.get("action", "sale")
 
         if action not in ("sale", "restock"):
@@ -143,30 +149,54 @@ async def voice_transaction(
                 detail=f"No product matching '{product_name}' found in your inventory.",
             )
 
-        # 4. Call the RPC to update quantity
+        # 4. Update product quantity and create transaction record
+        if action == "sale" and matched_product["quantity"] < quantity:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Insufficient stock for product '{matched_product['name']}'. Available: {matched_product['quantity']}, attempted sale: {quantity}."
+            )
+
         quantity_change = quantity if action == "restock" else -quantity
+        new_qty = matched_product["quantity"] + quantity_change
+        
         try:
+            headers_admin = get_supabase_headers(use_service_role=True)
             async with httpx.AsyncClient() as client:
-                response = await client.post(
-                    f"{SUPABASE_URL}/rest/v1/rpc/update_product_quantity",
-                    headers=get_headers(token),
+                # Update product quantity in database
+                prod_response = await client.patch(
+                    f"{SUPABASE_URL}/rest/v1/products?id=eq.{matched_product['id']}",
+                    headers=headers_admin,
+                    json={"quantity": new_qty}
+                )
+                if prod_response.status_code >= 400:
+                    raise HTTPException(
+                        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        detail=f"Failed to update product quantity: {prod_response.text}",
+                    )
+                
+                # Insert the transaction record
+                tx_response = await client.post(
+                    f"{SUPABASE_URL}/rest/v1/transactions",
+                    headers=headers_admin,
                     json={
-                        "p_product_id": matched_product["id"],
-                        "p_quantity_change": quantity_change,
-                        "p_action": action,
+                        "user_id": user_id,
+                        "product_id": matched_product["id"],
+                        "action": action,
+                        "quantity": quantity,
+                        "price": matched_product.get("price")
                     }
                 )
-            if response.status_code >= 400:
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail=f"RPC update_product_quantity failed: {response.text}",
-                )
+                if tx_response.status_code >= 400:
+                    raise HTTPException(
+                        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        detail=f"Failed to create transaction record: {tx_response.text}",
+                    )
         except Exception as e:
             if isinstance(e, HTTPException):
                 raise e
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"RPC update_product_quantity failed: {e}",
+                detail=f"Database update failed:\n{traceback.format_exc()}",
             )
 
         # 5. Fetch the updated product

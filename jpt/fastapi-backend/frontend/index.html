@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Voice Inventory · Demo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<div class="blobs">
+  <div class="blob b1"></div>
+  <div class="blob b2"></div>
+</div>
+
+<main class="center">
+  <div class="card">
+
+    <!-- ── Header ── -->
+    <header class="card-head">
+      <div class="logo">🎤</div>
+      <div>
+        <h1>Voice Inventory</h1>
+        <p class="sub">Azure Speech · NVIDIA LLM · Supabase</p>
+      </div>
+    </header>
+
+    <!-- ── Step 1 · Login ── -->
+    <section class="step">
+      <div class="step-label"><span class="chip">1</span> Login</div>
+      <div class="input-row">
+        <input id="email"    type="email"    placeholder="Email"    />
+        <input id="password" type="password" placeholder="Password" />
+      </div>
+      <button class="btn btn-ghost" onclick="doLogin()">🔑 Get Token</button>
+      <div id="loginMsg" class="msg hidden"></div>
+    </section>
+
+    <hr class="sep" />
+
+    <!-- ── Step 2 · Record / Upload ── -->
+    <section class="step">
+      <div class="step-label"><span class="chip">2</span> Voice Command</div>
+
+      <div class="lang-row">
+        <label>Language</label>
+        <select id="lang">
+          <option value="">Default (ne-NP)</option>
+          <option value="en-US">🇺🇸 English (en-US)</option>
+          <option value="ne-NP">🇳🇵 नेपाली (ne-NP)</option>
+        </select>
+      </div>
+
+      <!-- tabs -->
+      <div class="tabs">
+        <button class="tab active" id="tRec"    onclick="switchTab('rec')">🎙 Record</button>
+        <button class="tab"        id="tUpload" onclick="switchTab('upload')">📂 Upload File</button>
+      </div>
+
+      <!-- record panel -->
+      <div id="pRec" class="panel">
+        <div class="rec-area">
+          <button id="recBtn" class="btn btn-rec" onclick="toggleRecord()">⏺ Start Recording</button>
+          <span id="recTimer" class="timer hidden">⏱ <span id="timerVal">0</span>s</span>
+        </div>
+        <audio id="recAudio" controls class="audio-preview hidden"></audio>
+        <p class="hint">Say something like <em>"sell 5 Coca-Cola"</em> or <em>"५ वटा कोकाकोला बेच"</em></p>
+      </div>
+
+      <!-- upload panel -->
+      <div id="pUpload" class="panel hidden">
+        <label class="drop-zone" id="dropZone">
+          <span id="dropText">📁 Click to choose an audio file</span>
+          <input type="file" id="fileInput" accept="audio/*" onchange="onFile(this)" />
+        </label>
+      </div>
+
+      <button class="btn btn-primary" onclick="sendAudio()">
+        🚀 Transcribe &amp; Create Transaction
+      </button>
+      <div id="spinner" class="spinner hidden"></div>
+    </section>
+
+    <hr class="sep" />
+
+    <!-- ── Step 3 · Results ── -->
+    <section class="step hidden" id="results">
+      <div class="step-label"><span class="chip">3</span> Result</div>
+
+      <div class="grid2">
+        <div class="res-card">
+          <div class="res-label">📝 Azure Transcript</div>
+          <div class="res-value" id="rTranscript">–</div>
+        </div>
+        <div class="res-card">
+          <div class="res-label">🤖 LLM Extraction</div>
+          <pre class="res-pre" id="rExtracted"></pre>
+        </div>
+        <div class="res-card">
+          <div class="res-label">📦 Updated Product</div>
+          <pre class="res-pre" id="rProduct"></pre>
+        </div>
+        <div class="res-card">
+          <div class="res-label">🧾 Transaction</div>
+          <pre class="res-pre" id="rTx"></pre>
+        </div>
+      </div>
+
+      <div id="alertBadge" class="alert-badge hidden">⚠️ Low-stock alert email sent!</div>
+      <div id="errBox" class="err-box hidden"></div>
+    </section>
+
+  </div><!-- /card -->
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>

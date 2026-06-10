@@ -1,0 +1,245 @@
+/* ── Reset & Base ─────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:       hsl(230, 15%, 7%);
+  --card:     hsla(230, 20%, 13%, 0.85);
+  --border:   hsla(230, 30%, 60%, 0.15);
+  --accent:   hsl(210, 90%, 58%);
+  --accent2:  hsl(265, 80%, 62%);
+  --text:     hsl(220, 20%, 92%);
+  --muted:    hsl(220, 12%, 52%);
+  --danger:   hsl(0,   80%, 62%);
+  --success:  hsl(145, 60%, 48%);
+  --warn:     hsl(38,  90%, 58%);
+  --radius:   14px;
+  --shadow:   0 24px 60px rgba(0,0,0,.55);
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 15px;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ── Ambient blobs ─────────────────────────────────── */
+.blobs { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
+.blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(90px);
+  opacity: .35;
+}
+.b1 { width: 520px; height: 520px; background: var(--accent);  top: -140px; left: -120px; }
+.b2 { width: 480px; height: 480px; background: var(--accent2); bottom: -120px; right: -100px; }
+
+/* ── Layout ────────────────────────────────────────── */
+.center {
+  position: relative; z-index: 1;
+  display: flex; justify-content: center; align-items: flex-start;
+  min-height: 100vh;
+  padding: 2.5rem 1rem 4rem;
+}
+
+/* ── Card ──────────────────────────────────────────── */
+.card {
+  background: var(--card);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  width: 100%; max-width: 560px;
+  padding: 2rem 2.2rem;
+  animation: rise .5s ease-out both;
+}
+@keyframes rise {
+  from { opacity: 0; transform: translateY(18px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* ── Card header ───────────────────────────────────── */
+.card-head { display: flex; gap: 1rem; align-items: center; margin-bottom: 1.8rem; }
+.logo { font-size: 2.4rem; line-height: 1; }
+h1 { font-size: 1.55rem; font-weight: 700; color: var(--text); }
+.sub { font-size: .78rem; color: var(--muted); letter-spacing: .03em; margin-top: .2rem; }
+
+/* ── Steps ─────────────────────────────────────────── */
+.step { padding: .2rem 0 1rem; }
+.step-label { display: flex; align-items: center; gap: .55rem; font-weight: 600; font-size: 1rem; margin-bottom: 1rem; }
+.chip {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; border-radius: 50%;
+  background: var(--accent); color: #fff; font-size: .75rem; font-weight: 700;
+}
+
+hr.sep { border: none; border-top: 1px solid var(--border); margin: 1.2rem 0; }
+
+/* ── Inputs ────────────────────────────────────────── */
+.input-row { display: flex; gap: .6rem; margin-bottom: .8rem; flex-wrap: wrap; }
+input[type="email"],
+input[type="password"] {
+  flex: 1 1 180px;
+  background: hsla(230, 20%, 22%, .7);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: .55rem .8rem;
+  color: var(--text);
+  font-size: .9rem;
+  outline: none;
+  transition: border-color .2s;
+}
+input:focus { border-color: var(--accent); }
+
+/* ── Language selector ─────────────────────────────── */
+.lang-row { display: flex; align-items: center; gap: .7rem; margin-bottom: 1rem; }
+.lang-row label { font-size: .85rem; color: var(--muted); white-space: nowrap; }
+select {
+  flex: 1;
+  background: hsla(230, 20%, 22%, .7);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: .5rem .75rem;
+  color: var(--text);
+  font-size: .9rem;
+  outline: none;
+  cursor: pointer;
+}
+
+/* ── Tabs ──────────────────────────────────────────── */
+.tabs { display: flex; gap: .4rem; margin-bottom: .9rem; }
+.tab {
+  flex: 1;
+  background: hsla(230, 20%, 18%, .5);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: .5rem;
+  color: var(--muted);
+  font-size: .88rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all .2s;
+}
+.tab.active { background: var(--accent); border-color: transparent; color: #fff; }
+.tab:not(.active):hover { border-color: var(--accent); color: var(--text); }
+
+/* ── Panel ─────────────────────────────────────────── */
+.panel { margin-bottom: .9rem; }
+.hidden { display: none !important; }
+
+/* ── Record area ───────────────────────────────────── */
+.rec-area { display: flex; align-items: center; gap: .8rem; margin-bottom: .6rem; }
+.timer { font-size: .85rem; color: var(--muted); }
+.audio-preview { width: 100%; margin-top: .6rem; border-radius: 6px; }
+.hint { font-size: .8rem; color: var(--muted); margin-top: .4rem; }
+.hint em { color: var(--accent); font-style: normal; }
+
+/* ── Drop-zone ─────────────────────────────────────── */
+.drop-zone {
+  display: flex; align-items: center; justify-content: center;
+  border: 2px dashed var(--border);
+  border-radius: 10px;
+  padding: 1.5rem;
+  text-align: center;
+  cursor: pointer;
+  font-size: .88rem; color: var(--muted);
+  transition: border-color .2s, background .2s;
+}
+.drop-zone:hover { border-color: var(--accent); background: hsla(210,90%,58%,.06); }
+.drop-zone input { display: none; }
+
+/* ── Buttons ───────────────────────────────────────── */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: .4rem;
+  padding: .6rem 1.1rem; border: none; border-radius: 8px;
+  font-size: .9rem; font-weight: 600; cursor: pointer;
+  transition: all .2s;
+}
+.btn-primary {
+  width: 100%; margin-top: .4rem;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  color: #fff;
+}
+.btn-primary:hover { opacity: .88; transform: translateY(-1px); }
+.btn-primary:active { transform: none; }
+
+.btn-ghost {
+  background: hsla(230, 20%, 22%, .6);
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+.btn-ghost:hover { border-color: var(--accent); }
+
+.btn-rec {
+  background: hsla(0, 80%, 55%, .15);
+  border: 1px solid hsla(0,80%,55%,.3);
+  color: var(--danger);
+}
+.btn-rec.recording {
+  background: var(--danger);
+  border-color: transparent;
+  color: #fff;
+  animation: pulse 1.2s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 0 0 hsla(0,80%,62%,.5); }
+  50%       { box-shadow: 0 0 0 8px hsla(0,80%,62%,0); }
+}
+
+/* ── Spinner ───────────────────────────────────────── */
+.spinner {
+  width: 32px; height: 32px; margin: .8rem auto 0;
+  border: 3px solid hsla(210,90%,58%,.2);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Messages ──────────────────────────────────────── */
+.msg {
+  margin-top: .6rem; padding: .5rem .8rem;
+  border-radius: 8px; font-size: .85rem;
+}
+.msg.ok  { background: hsla(145,60%,48%,.15); color: var(--success); border: 1px solid hsla(145,60%,48%,.3); }
+.msg.err { background: hsla(0,80%,62%,.12);   color: var(--danger);  border: 1px solid hsla(0,80%,62%,.3);  }
+
+/* ── Results grid ──────────────────────────────────── */
+.grid2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: .8rem;
+  margin-bottom: .9rem;
+}
+@media (max-width: 480px) { .grid2 { grid-template-columns: 1fr; } }
+
+.res-card {
+  background: hsla(230, 20%, 10%, .6);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: .9rem 1rem;
+}
+.res-label { font-size: .72rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: .4rem; }
+.res-value { font-size: .9rem; font-weight: 500; word-break: break-word; }
+.res-pre {
+  font-size: .78rem; font-family: 'Fira Code', 'Cascadia Code', monospace;
+  white-space: pre-wrap; word-break: break-word;
+  line-height: 1.5; color: hsl(210,50%,75%);
+}
+
+/* ── Badges ────────────────────────────────────────── */
+.alert-badge {
+  background: hsla(38,90%,58%,.15);
+  border: 1px solid hsla(38,90%,58%,.4);
+  color: var(--warn); border-radius: 8px;
+  padding: .55rem .9rem; font-size: .85rem; font-weight: 600;
+}
+.err-box {
+  background: hsla(0,80%,62%,.1);
+  border: 1px solid hsla(0,80%,62%,.35);
+  color: var(--danger); border-radius: 8px;
+  padding: .7rem .9rem; font-size: .85rem;
+  white-space: pre-wrap;
+}

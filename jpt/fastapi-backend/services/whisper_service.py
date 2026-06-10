@@ -1,96 +1,81 @@
-"""Audio transcription via Google Gemini Flash.
+"""Audio transcription via Azure AI Speech Service.
 
-Gemini 1.5/2.0 Flash natively understands audio and supports multilingual
-transcription including Nepali, which makes it a much better fit than
-Whisper for non-English inventory commands.
+Converts input audio dynamically to 16kHz WAV format (required by Azure REST API)
+using FFmpeg, then transcribes it using Azure Speech REST API.
 """
 from __future__ import annotations
 
-import base64
+import asyncio
 import os
-
 import httpx
 from dotenv import load_dotenv
 
 load_dotenv()
 
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-# Use the free flash model — swap to "gemini-1.5-pro" for higher accuracy if needed
-GEMINI_MODEL = os.getenv("GEMINI_TRANSCRIPTION_MODEL", "gemini-2.0-flash")
-GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
+AZURE_SPEECH_KEY = os.getenv("AZURE_SPEECH_KEY", "")
+AZURE_SPEECH_REGION = os.getenv("AZURE_SPEECH_REGION", "koreacentral")
+AZURE_SPEECH_LANGUAGE = os.getenv("AZURE_SPEECH_LANGUAGE", "ne-NP")
 
 
-async def transcribe_audio(file_bytes: bytes, filename: str) -> str:
-    """Transcribe audio bytes using Gemini Flash's native audio understanding.
-
-    Supports Nepali, English, and other languages automatically.
-    Returns the plain-text transcript.
-    """
-    if not GEMINI_API_KEY:
+async def convert_to_wav_16k(file_bytes: bytes) -> bytes:
+    """Convert input audio (mp3, webm, etc.) to 16kHz WAV PCM 16-bit mono using ffmpeg in-memory."""
+    process = await asyncio.create_subprocess_exec(
+        "ffmpeg",
+        "-y",
+        "-i", "pipe:0",
+        "-f", "wav",
+        "-acodec", "pcm_s16le",
+        "-ar", "16000",
+        "-ac", "1",
+        "pipe:1",
+        stdin=asyncio.subprocess.PIPE,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    stdout, stderr = await process.communicate(input=file_bytes)
+    if process.returncode != 0:
         raise RuntimeError(
-            "GEMINI_API_KEY is not set. Get a free key at https://aistudio.google.com/apikey"
+            f"FFmpeg audio conversion failed: {stderr.decode()}"
+        )
+    return stdout
+
+
+async def transcribe_audio(file_bytes: bytes, filename: str, language: str | None = None) -> str:
+    """Transcribe audio bytes using Azure AI Speech REST API.
+
+    Automatically converts audio format to WAV PCM 16kHz mono.
+    """
+    if not AZURE_SPEECH_KEY:
+        raise RuntimeError(
+            "AZURE_SPEECH_KEY is not set in environment variables."
         )
 
-    # Detect MIME type from filename extension
-    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else "webm"
-    mime_map = {
-        "mp3": "audio/mpeg",
-        "mp4": "audio/mp4",
-        "m4a": "audio/mp4",
-        "wav": "audio/wav",
-        "webm": "audio/webm",
-        "ogg": "audio/ogg",
-        "flac": "audio/flac",
-        "aac": "audio/aac",
-    }
-    mime_type = mime_map.get(ext, "audio/mpeg")
+    # Convert audio to wav first
+    wav_bytes = await convert_to_wav_16k(file_bytes)
 
-    # Encode audio as base64 for the inline data API
-    audio_b64 = base64.b64encode(file_bytes).decode("utf-8")
+    lang = language or AZURE_SPEECH_LANGUAGE
 
-    payload = {
-        "contents": [
-            {
-                "parts": [
-                    {
-                        "inline_data": {
-                            "mime_type": mime_type,
-                            "data": audio_b64,
-                        }
-                    },
-                    {
-                        "text": (
-                            "Transcribe this audio exactly as spoken. "
-                            "The audio may be in Nepali, English, or a mix of both. "
-                            "Output only the transcription text — no commentary, "
-                            "no timestamps, no labels."
-                        )
-                    },
-                ]
-            }
-        ],
-        "generationConfig": {
-            "temperature": 0,
-        },
+    url = f"https://{AZURE_SPEECH_REGION}.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1?language={lang}"
+
+    headers = {
+        "Ocp-Apim-Subscription-Key": AZURE_SPEECH_KEY,
+        "Content-Type": "audio/wav; codecs=audio/pcm; samplerate=16000",
+        "Accept": "application/json",
     }
 
-    url = f"{GEMINI_BASE_URL}/models/{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
-
-    async with httpx.AsyncClient(timeout=60.0) as client:
-        response = await client.post(url, json=payload)
+    async with httpx.AsyncClient() as client:
+        response = await client.post(url, headers=headers, content=wav_bytes, timeout=30.0)
 
     if response.status_code >= 400:
         raise RuntimeError(
-            f"Gemini API error ({response.status_code}): {response.text}"
+            f"Azure Speech API error ({response.status_code}): {response.text}"
         )
 
     result = response.json()
-
-    try:
-        transcript = result["candidates"][0]["content"]["parts"][0]["text"].strip()
-    except (KeyError, IndexError) as exc:
-        raise RuntimeError(
-            f"Unexpected Gemini response shape: {result}"
-        ) from exc
-
-    return transcript
+    status = result.get("RecognitionStatus")
+    if status == "Success":
+        return result.get("DisplayText", "").strip()
+    elif status == "NoMatch":
+        return ""
+    else:
+        raise RuntimeError(f"Azure Speech recognition failed with status: {status}. Response: {result}")
